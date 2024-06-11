@@ -107,7 +107,7 @@ server <- function(input, output) {
       df_final_filtered <- df_filtered_stage1()
     } else {
       # Some segment was clicked on the bar. Add that selection as a filter to the stage1 dataset
-      df_final_filtered <- df_filtered_stage1() %>% filter(species==d$customdata) %>% filter(year==d$x)
+      df_final_filtered <- df_filtered_stage1() %>% filter(.data[[input$category]]==d$customdata) %>% filter(year==d$x)
     }
     df_final_filtered
   })
