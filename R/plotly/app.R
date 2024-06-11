@@ -98,14 +98,18 @@ server <- function(input, output) {
       filter(sex %in% input$sex_filter) ## possibly add plot_click() related filter here?
   })
   
+  df_summarized <- reactive({
+    df_filtered() %>% count(year,.data[[input$category]])
+  })
+  
   
   # Dynamic Title
   output$chart_title <- renderText(paste("Number of Palmer Penguins by ",category()," and by Year"))
   
   # Main Plot
   output$penguin_plot <- renderPlotly( 
-    plot_ly(df_filtered(), x=year, type='bar', color=~(.data[[input$category]])) %>% 
-      layout(yaxis = list(title = 'Count'), barmode = 'stack')
+    plot_ly(df_summarized(), x=~year, y=~n, type='bar', color=~(.data[[input$category]])) %>% 
+      layout(barmode = 'stack')
     #ggplot(df_filtered(), aes(x=year, fill=.data[[input$category]])) +
     #  geom_bar()
   )
