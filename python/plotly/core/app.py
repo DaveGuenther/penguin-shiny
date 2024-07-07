@@ -4,8 +4,8 @@ from shinywidgets import output_widget, render_widget, render_plotly
 from plotnine import ggplot, aes, geom_bar
 import plotly.graph_objects as go
 import palmerpenguins
-from plotly.callbacks import Points, InputDeviceState
-points, state = Points(), InputDeviceState()
+#from plotly.callbacks import Points, InputDeviceState
+#points, state = Points(), InputDeviceState()
 
 
 df_penguins = palmerpenguins.load_penguins()
@@ -73,6 +73,8 @@ app_ui = ui.page_fluid(
         ui.card( # Plot
             ui.card_header(ui.output_text('chart_title')),
             output_widget('penguin_plot'),
+            ui.output_text_verbatim('hover_info_output'),
+            ui.output_text_verbatim('click_info_output'),
         ),
         ui.card( # Table
             ui.card_header(ui.output_text('total_rows')),
@@ -87,6 +89,19 @@ app_ui = ui.page_fluid(
 
 def server (input, output, session):
     
+    click_filter=reactive.value({})
+    hover_info=reactive.value({})
+
+    def setHoverValues(trace, points, selector):
+        if not points.point_inds:
+            return
+        hover_info.set(points)
+
+    def setClickedValues(trace, points, selector):
+        if not points.point_inds:
+            return
+        click_filter.set({'year':points.xs,input.category():points.trace_name})
+
     @reactive.calc
     def category():
         '''This function caches the appropriate Capitalized form of the selected category'''
@@ -116,10 +131,6 @@ def server (input, output, session):
     def df_summarized():
         return df_filtered_stage2().groupby(['year',input.category()], as_index=False).count().rename({'body_mass_g':"count"},axis=1)[['year',input.category(),'count']]
 
-    @reactive.calc
-    def filter_fn():
-        print("Clicked!") # This never gets called
-        
     @render_widget
     def penguin_plot():
         df_plot = df_summarized()
@@ -129,12 +140,21 @@ def server (input, output, session):
         fig = go.Figure(data)
         fig.update_layout(barmode="stack")
         fig = go.FigureWidget(fig)
-        session
-        fig.data[0].on_click(
-            filter_fn
-            )
+        
+        for trace in fig.data:
+            trace.on_hover(setHoverValues)
+            trace.on_click(setClickedValues)
+
         return fig
     
+    @render.text
+    def hover_info_output():
+        return hover_info.get()
+
+    @render.text
+    def click_info_output():
+        return click_filter.get()
+
     @render.text
     def total_rows():
         return "Total Rows: "+str(df_filtered_stage1().shape[0])
