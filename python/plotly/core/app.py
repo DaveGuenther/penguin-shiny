@@ -1,10 +1,11 @@
 # Load data and compute static values
 from shiny import App, reactive, render, ui
-from shinywidgets import output_widget, render_widget
+from shinywidgets import output_widget, render_widget, render_plotly
 from plotnine import ggplot, aes, geom_bar
-#import plotly.graph_objects as go
-import plotly.express as px
+import plotly.graph_objects as go
 import palmerpenguins
+from plotly.callbacks import Points, InputDeviceState
+points, state = Points(), InputDeviceState()
 
 
 df_penguins = palmerpenguins.load_penguins()
@@ -94,7 +95,6 @@ def server (input, output, session):
     # Dynamic Chart Title
     @render.text
     def chart_title():
-        
         return "Number of Palmer Penguins by Year, colored by "+category()
 
 
@@ -108,32 +108,33 @@ def server (input, output, session):
 
     @reactive.calc
     def df_filtered_stage2():
-        pass
-
+        df_filtered_st2 = df_filtered_stage1() 
+        # Eventually add additional filters on dataset from segments selected on the visual
+        return df_filtered_st2 
+    
     @reactive.calc
     def df_summarized():
-        return df_filtered_stage1().groupby(['year',input.category()], as_index=False).count().rename({'body_mass_g':"count"},axis=1)[['year',input.category(),'count']]
+        return df_filtered_stage2().groupby(['year',input.category()], as_index=False).count().rename({'body_mass_g':"count"},axis=1)[['year',input.category(),'count']]
 
+    @reactive.calc
+    def filter_fn():
+        print("Clicked!") # This never gets called
+        
     @render_widget
     def penguin_plot():
         df_plot = df_summarized()
-        fig = px.bar(df_plot, x='year', y='count', color=input.category())
+        bar_columns = list(df_plot['year'].unique()) # x axis column labels
+        bar_segments = list(df_plot[input.category()].unique()) # bar segment category labels
+        data = [go.Bar(name=segment, x=bar_columns,y=list(df_plot[df_plot[input.category()]==segment]['count'].values), customdata=[input.category()], customdatasrc='A') for segment in bar_segments]
+        fig = go.Figure(data)
+        fig.update_layout(barmode="stack")
+        fig = go.FigureWidget(fig)
+        session
+        fig.data[0].on_click(
+            filter_fn
+            )
         return fig
-#    @render_widget
-#    def penguin_plot():
-#        fig = go.Figure()
-#        df_plot = df_summarized()
-#        for year in df_plot["year"]:
-#            for category in df_plot[input.category()]:
-#                fig.add_trace(go.Bar(
-#                    x=df_plot.columns[1:],
-#                    y=list(df_plot.loc[(df_plot["year"]==year)&(df_plot[input.category()]==category)][list(df_plot.columns[1:])].transpose().iloc[:,0]),
-#                    name=str(input.category())
-#                    )
-#                )
-#        fig.update_layout(barmode="stack")
-#        return fig        
-
+    
     @render.text
     def total_rows():
         return "Total Rows: "+str(df_filtered_stage1().shape[0])

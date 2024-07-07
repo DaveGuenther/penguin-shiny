@@ -1,11 +1,9 @@
-# Plotnine tracks ggplot2, but both plotnine and ggplot2 appear to have limited flexibility on events.  
-# I wasn't able to make a bar chart clickable and set as a filter to other parts of the shiny dashboard.
-# From here I moved on to look into plotly (using Shiny) to see if that might offer a solution.
-
-
 # Load data and compute static values
 from shiny import App, reactive, render, ui
+from shinywidgets import output_widget, render_widget, render_plotly
 from plotnine import ggplot, aes, geom_bar
+#import plotly.graph_objects as go
+import plotly.express as px
 import palmerpenguins
 
 
@@ -73,7 +71,7 @@ app_ui = ui.page_fluid(
         # Main Panel
         ui.card( # Plot
             ui.card_header(ui.output_text('chart_title')),
-            ui.output_plot('penguin_plot'),
+            output_widget('penguin_plot'),
         ),
         ui.card( # Table
             ui.card_header(ui.output_text('total_rows')),
@@ -98,29 +96,56 @@ def server (input, output, session):
     def chart_title():
         
         return "Number of Palmer Penguins by Year, colored by "+category()
-    
+
+
     @reactive.calc
-    def df_filtered():
+    def df_filtered_stage1():
         '''This function caches the filtered datframe based on selections in the view'''
         return df_penguins[
             (df_penguins['species'].isin(input.species_filter())) &
             (df_penguins['island'].isin(input.island_filter())) &
             (df_penguins['sex'].isin(input.sex_filter()))]
 
-    @render.plot
+    @reactive.calc
+    def df_filtered_stage2():
+        pass
+
+    @reactive.calc
+    def df_summarized():
+        return df_filtered_stage1().groupby(['year',input.category()], as_index=False).count().rename({'body_mass_g':"count"},axis=1)[['year',input.category(),'count']]
+
+    @render_widget
     def penguin_plot():
-        return (
-            ggplot(df_filtered(), aes(x='year', fill=input.category())) 
-            + geom_bar()
-            )
+        df_plot = df_summarized()
+        fig = px.bar(df_plot, x='year', y='count', color=input.category(), custom_data=[input.category()])
+        fig.update_layout(barmode="stack")
+        return fig
+    
+       
+
+#    @render_widget
+#    def penguin_plot():
+#        fig = go.Figure()
+#        df_plot = df_summarized()
+#        for year in df_plot["year"]:
+#            for category in df_plot[input.category()]:
+#                fig.add_trace(go.Bar(
+#                    x=df_plot.columns[1:],
+#                    y=list(df_plot.loc[(df_plot["year"]==year)&(df_plot[input.category()]==category)][list(df_plot.columns[1:])].transpose().iloc[:,0]),
+#                    name=str(input.category())
+#                    )
+#                )
+#        fig.update_layout(barmode="stack")
+#        return fig        
 
     @render.text
     def total_rows():
-        return "Total Rows: "+str(df_filtered().shape[0])
+        return "Total Rows: "+str(df_filtered_stage1().shape[0])
 
     @render.table
     def table_view():
-        return df_filtered()
+        df_this=df_summarized()
+        return df_filtered_stage1()
 
 app = App(app_ui, server)
 

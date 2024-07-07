@@ -1,3 +1,11 @@
+# Second attempt at a Shiny Dashboard that allows reactive filtering based on a bar chart segment being clicked.
+# I used plotly for this dashboard and found that it was pretty easy to set up the reactivity where I can filter
+# a table based on selecting a bar segment in the bar chart.  The secret with plotly is the customdata argument to the 
+# plot function to add the dimensions that I want to isolate when clicking on a segment, and then using the event_data() function
+# to make use of those dimensions to filter down the table data.  After getting this to work, I wanted to see if I could get the 
+# same functionality working with Shiny for Python using plotly 
+# (see in this repo: python/plotly/core/app.py and python/plotly/express/app.py for the next iteration using python)
+
 library(shiny)
 library(dplyr)
 library(bslib)
