@@ -3,7 +3,9 @@ from shiny import App, reactive, render, ui
 from shinywidgets import output_widget, render_widget, render_plotly
 from plotnine import ggplot, aes, geom_bar
 import plotly.graph_objects as go
+import pandas as pd
 import palmerpenguins
+import itertools
 #from plotly.callbacks import Points, InputDeviceState
 #points, state = Points(), InputDeviceState()
 
@@ -75,6 +77,7 @@ app_ui = ui.page_fluid(
             output_widget('penguin_plot'),
             ui.output_text_verbatim('hover_info_output'),
             ui.output_text_verbatim('click_info_output'),
+            ui.output_text_verbatim('selection_info_output'),
         ),
         ui.card( # Table
             ui.card_header(ui.output_text('total_rows')),
@@ -89,6 +92,7 @@ app_ui = ui.page_fluid(
 
 def server (input, output, session):
     
+    selection_filter=reactive.value({})
     click_filter=reactive.value({})
     hover_info=reactive.value({})
 
@@ -101,6 +105,16 @@ def server (input, output, session):
         if not points.point_inds:
             return
         click_filter.set({'year':points.xs,input.category():points.trace_name})
+
+    def setSelectedValues(trace, points, selector):
+        # This function is called once for every trace (For each possible value of the selected category)
+        if not points.point_inds:
+            return
+        action_filters=selection_filter.get()
+        action_filters=action_filters.copy() # Establish a new location in memory so that it acts like an immutable object
+        action_filters[points.trace_name+'year'] = [[points.trace_name], points.xs]
+        selection_filter.set(action_filters)
+
 
     @reactive.calc
     def category():
@@ -124,7 +138,18 @@ def server (input, output, session):
     @reactive.calc
     def df_filtered_stage2():
         df_filtered_st2 = df_filtered_stage1() 
-        # Eventually add additional filters on dataset from segments selected on the visual
+        # Add additional filters on dataset from segments selected on the visual
+        action_filters=selection_filter.get()
+        if action_filters:
+            #Only run this if chart segments have been selected using the selection tool
+            result = [
+                (df_filtered_st2['species'].isin(action_filters[key][0]))&  # Species Segment Filter
+                (df_filtered_st2['year'].isin(action_filters[key][1]))  # Year Segment Filter
+                for key in action_filters.keys() # for ALL traces that registered selections
+            ]
+            ser_segment_filter = pd.DataFrame(result).any()
+            df_filtered_st2 = df_filtered_st2[ser_segment_filter]
+
         return df_filtered_st2 
     
     @reactive.calc
@@ -136,14 +161,17 @@ def server (input, output, session):
         df_plot = df_summarized()
         bar_columns = list(df_plot['year'].unique()) # x axis column labels
         bar_segments = list(df_plot[input.category()].unique()) # bar segment category labels
-        data = [go.Bar(name=segment, x=bar_columns,y=list(df_plot[df_plot[input.category()]==segment]['count'].values), customdata=[input.category()], customdatasrc='A') for segment in bar_segments]
+        data = [go.Bar(name=segment, x=bar_columns,y=list(df_plot[df_plot[input.category()]==segment]['count'].values), customdata=[input.category()]) for segment in bar_segments]
         fig = go.Figure(data)
         fig.update_layout(barmode="stack")
+        fig.layout.xaxis.fixedrange = True
+        fig.layout.yaxis.fixedrange = True
         fig = go.FigureWidget(fig)
         
         for trace in fig.data:
             trace.on_hover(setHoverValues)
             trace.on_click(setClickedValues)
+            trace.on_selection(setSelectedValues)
 
         return fig
     
@@ -156,13 +184,16 @@ def server (input, output, session):
         return click_filter.get()
 
     @render.text
+    def selection_info_output():
+        return selection_filter.get()
+
+    @render.text
     def total_rows():
-        return "Total Rows: "+str(df_filtered_stage1().shape[0])
+        return "Total Rows: "+str(df_filtered_stage2().shape[0])
 
     @render.table
     def table_view():
-        df_this=df_summarized()
-        return df_filtered_stage1()
+        return df_filtered_stage2()
 
 app = App(app_ui, server)
 
