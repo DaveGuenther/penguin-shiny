@@ -107,14 +107,24 @@ def server (input, output, session):
         click_filter.set({'year':points.xs,input.category():points.trace_name})
 
     def setSelectedValues(trace, points, selector):
-        # This function is called once for every trace (For each possible value of the selected category)
-        if not points.point_inds:
-            return
+        # Pull existing values of trace filters.  We will replace them with new values
         action_filters=selection_filter.get()
         action_filters=action_filters.copy() # Establish a new location in memory so that it acts like an immutable object
-        action_filters[points.trace_name+'year'] = [[points.trace_name], points.xs]
-        selection_filter.set(action_filters)
 
+        # This function is called once for every trace (For each possible value of the selected category)
+        if not points.point_inds:
+            if points.trace_name+'year' in action_filters:
+                action_filters.pop(points.trace_name+'year') # If nothing was selected, remove it's filter
+        else:
+            action_filters[points.trace_name+'year'] = [[points.trace_name], points.xs]
+        
+        selection_filter.set(action_filters) # Update reactive value with new trace filter
+
+    def figureChanged(fig, figureWidget):
+        for trace in fig.data:
+            trace.on_hover(setHoverValues)
+            trace.on_click(setClickedValues)
+            trace.on_selection(setSelectedValues)
 
     @reactive.calc
     def category():
@@ -154,7 +164,7 @@ def server (input, output, session):
     
     @reactive.calc
     def df_summarized():
-        return df_filtered_stage2().groupby(['year',input.category()], as_index=False).count().rename({'body_mass_g':"count"},axis=1)[['year',input.category(),'count']]
+        return df_filtered_stage1().groupby(['year',input.category()], as_index=False).count().rename({'body_mass_g':"count"},axis=1)[['year',input.category(),'count']]
 
     @render_widget
     def penguin_plot():
@@ -166,14 +176,16 @@ def server (input, output, session):
         fig.update_layout(barmode="stack")
         fig.layout.xaxis.fixedrange = True
         fig.layout.yaxis.fixedrange = True
-        fig = go.FigureWidget(fig)
-        
-        for trace in fig.data:
+        figWidget = go.FigureWidget(fig)
+        selection_filter.set({})
+        for trace in figWidget.data:
             trace.on_hover(setHoverValues)
             trace.on_click(setClickedValues)
-            trace.on_selection(setSelectedValues)
+            trace.on_selection(setSelectedValues)        
+        #figureWidget.layout.on_change(figureChanged, figureWidget)
 
-        return fig
+
+        return figWidget
     
     @render.text
     def hover_info_output():
