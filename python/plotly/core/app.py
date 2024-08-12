@@ -78,12 +78,17 @@ app_ui = ui.page_fluid(
             ui.output_text_verbatim('hover_info_output'),
             ui.output_text_verbatim('click_info_output'),
             ui.output_text_verbatim('selection_info_output'),
-            ui.output_text_verbatim("results"),
+            #ui.tags.script('''
+            #               $(document).on("keydown", function (e) {
+            #                   Shiny.onInputChange("key_pressed", e.which);
+            #                   });
+            #                '''),
             ui.tags.script('''
-                           $(document).on("keypress", function (e) {
-                               Shiny.onInputChange("mydata", e.which);
-                               });
-                               ''')
+                            $(document).on("click", function(e){
+                                Shiny.onInputChange("key_pressed", e.ctrlKey)
+                            })
+                           '''),
+            ui.output_text_verbatim("results"),
         ),
         ui.card( # Table
             ui.card_header(ui.output_text('total_rows')),
@@ -215,7 +220,7 @@ def server (input, output, session):
     
     @render.text
     def results():
-        return input.mydata()
+        return input.key_pressed()
 
 app = App(app_ui, server)
 
