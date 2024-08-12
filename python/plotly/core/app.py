@@ -78,6 +78,12 @@ app_ui = ui.page_fluid(
             ui.output_text_verbatim('hover_info_output'),
             ui.output_text_verbatim('click_info_output'),
             ui.output_text_verbatim('selection_info_output'),
+            ui.output_text_verbatim("results"),
+            ui.tags.script('''
+                           $(document).on("keypress", function (e) {
+                               Shiny.onInputChange("mydata", e.which);
+                               });
+                               ''')
         ),
         ui.card( # Table
             ui.card_header(ui.output_text('total_rows')),
@@ -177,7 +183,7 @@ def server (input, output, session):
         fig.layout.xaxis.fixedrange = True
         fig.layout.yaxis.fixedrange = True
         figWidget = go.FigureWidget(fig)
-        selection_filter.set({})
+        #selection_filter.set({})
         for trace in figWidget.data:
             trace.on_hover(setHoverValues)
             trace.on_click(setClickedValues)
@@ -206,6 +212,10 @@ def server (input, output, session):
     @render.table
     def table_view():
         return df_filtered_stage2()
+    
+    @render.text
+    def results():
+        return input.mydata()
 
 app = App(app_ui, server)
 
