@@ -2,9 +2,11 @@
 from shiny import App, reactive, render, ui
 from shinywidgets import output_widget, render_widget, render_plotly
 from plotnine import ggplot, aes, geom_bar
+from htmltools import div
 import plotly.graph_objects as go
 import pandas as pd
 import palmerpenguins
+import numpy as np
 import itertools
 #from plotly.callbacks import Points, InputDeviceState
 #points, state = Points(), InputDeviceState()
@@ -45,6 +47,7 @@ def filter_shelf():
         ),
     )
 
+
 def parameter_shelf():
     return ui.card(
         ui.card_header(
@@ -59,6 +62,10 @@ def parameter_shelf():
             choices=dict_category,
             selected = 'species',
         ),
+
+        # Hidden Control for plot_clicked
+        ui.input_text('plot_clicked', label='', value='not_clicked').add_style("display: none;"),
+
     ),
 
 app_ui = ui.page_fluid(
@@ -75,8 +82,11 @@ app_ui = ui.page_fluid(
         ui.card( # Plot
             ui.card_header(ui.output_text('chart_title')),
             output_widget('penguin_plot'),
+            ui.span("on_hover Data: "),
             ui.output_text_verbatim('hover_info_output'),
+            ui.span("on_click Data: "),
             ui.output_text_verbatim('click_info_output'),
+            ui.span("on_selection Data: "),
             ui.output_text_verbatim('selection_info_output'),
             #ui.tags.script('''
             #               $(document).on("keydown", function (e) {
@@ -84,10 +94,17 @@ app_ui = ui.page_fluid(
             #                   });
             #                '''),
             ui.tags.script('''
+                            console.log("Initializing!"); 
+                            //Shiny.setInputValue("plot_clicked","not_clicked"); 
                             $(document).on("click", function(e){
-                                Shiny.onInputChange("key_pressed", e.ctrlKey)
+                                Shiny.onInputChange("ctrlPressed", e.ctrlKey);
                             })
+                            $(penguin_plot).on("click", function(e){
+                                console.log("Penguin Plot Clicked!");
+                                Shiny.onInputChange("plot_clicked","clicked");
+                            }) 
                            '''),
+            ui.span("Control Key Pressed:"),
             ui.output_text_verbatim("results"),
         ),
         ui.card( # Table
@@ -105,17 +122,49 @@ def server (input, output, session):
     
     selection_filter=reactive.value({})
     click_filter=reactive.value({})
+    click_opacity=reactive.value({})
     hover_info=reactive.value({})
+    penguin_plot_clicked=reactive.value(False)
 
     def setHoverValues(trace, points, selector):
         if not points.point_inds:
             return
         hover_info.set(points)
 
+    def highlightBars(figWidget):
+        opacity_dict=click_opacity.get()
+        
+        # First look through all points in all tractes to see if at least one point was selected
+        any_points_clicked = False
+        if opacity_dict: # initial load will be empty
+            any_points_clicked = True in [1 in trace for trace in opacity_dict.values()]
+        # if no points were selected, reset opacity to 1 for all points
+        if any_points_clicked:
+            for trace,opacity_array in zip(figWidget.data,opacity_dict.values()):
+                trace.marker.opacity=opacity_array
+        else:
+            for trace in figWidget.data:
+                trace.marker.opacity=1
+
+
     def setClickedValues(trace, points, selector):
+        inds = np.array(points.point_inds)
+        opacity_dict=click_opacity.get().copy()
+        opacity_array = np.full(len(trace.x), .2, dtype=float) # create 1d array of opacity values for elements in this trace
+        if inds.size: # if any were selected in the trace, set their opacity to 1
+            opacity_array[inds] = 1
+            #trace.marker.opacity = opacity_array        
+
+        opacity_dict[trace.name]=opacity_array
+        click_opacity.set(opacity_dict)
         if not points.point_inds:
             return
+    
         click_filter.set({'year':points.xs,input.category():points.trace_name})
+    
+    def unSelectValues(trace, points):
+        inds = points.point_inds
+        print("Deselected!!!!")
 
     def setSelectedValues(trace, points, selector):
         # Pull existing values of trace filters.  We will replace them with new values
@@ -124,18 +173,15 @@ def server (input, output, session):
 
         # This function is called once for every trace (For each possible value of the selected category)
         if not points.point_inds:
-            if points.trace_name+'year' in action_filters:
-                action_filters.pop(points.trace_name+'year') # If nothing was selected, remove it's filter
+            if (points.trace_name+'year' in action_filters)&(not input.ctrlPressed()):
+                action_filters.pop(points.trace_name+'year') # If nothing was selected and Ctrl wasn't pressed, remove it's filter
         else:
-            action_filters[points.trace_name+'year'] = [[points.trace_name], points.xs]
+            if ((points.trace_name+'year' in action_filters.keys())&input.ctrlPressed()):
+                action_filters[points.trace_name+'year'] = [[points.trace_name], list(set(action_filters[points.trace_name+'year'][1]+points.xs))]
+            else:
+                action_filters[points.trace_name+'year'] = [[points.trace_name], points.xs]
         
         selection_filter.set(action_filters) # Update reactive value with new trace filter
-
-    def figureChanged(fig, figureWidget):
-        for trace in fig.data:
-            trace.on_hover(setHoverValues)
-            trace.on_click(setClickedValues)
-            trace.on_selection(setSelectedValues)
 
     @reactive.calc
     def category():
@@ -188,11 +234,19 @@ def server (input, output, session):
         fig.layout.xaxis.fixedrange = True
         fig.layout.yaxis.fixedrange = True
         figWidget = go.FigureWidget(fig)
-        #selection_filter.set({})
+
+        
+        if input.plot_clicked()=="clicked":
+            ui.update_text('plot_clicked',value="not_clicked")
+            highlightBars(figWidget)
         for trace in figWidget.data:
             trace.on_hover(setHoverValues)
             trace.on_click(setClickedValues)
-            trace.on_selection(setSelectedValues)        
+            trace.on_selection(setSelectedValues) 
+            trace.on_deselect(unSelectValues)
+
+        highlightBars(figWidget)
+        
         #figureWidget.layout.on_change(figureChanged, figureWidget)
 
 
@@ -220,7 +274,7 @@ def server (input, output, session):
     
     @render.text
     def results():
-        return input.key_pressed()
+        return input.ctrlPressed()
 
 app = App(app_ui, server)
 
