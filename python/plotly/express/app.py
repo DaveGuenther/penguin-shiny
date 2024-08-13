@@ -1,6 +1,6 @@
 # Load data and compute static values
 from shiny import App, reactive, render, ui
-from shinywidgets import output_widget, render_widget
+from shinywidgets import output_widget, render_widget, render_plotly
 from plotnine import ggplot, aes, geom_bar
 #import plotly.graph_objects as go
 import plotly.express as px
@@ -117,8 +117,12 @@ def server (input, output, session):
     @render_widget
     def penguin_plot():
         df_plot = df_summarized()
-        fig = px.bar(df_plot, x='year', y='count', color=input.category())
+        fig = px.bar(df_plot, x='year', y='count', color=input.category(), custom_data=[input.category()])
+        fig.update_layout(barmode="stack")
         return fig
+    
+       
+
 #    @render_widget
 #    def penguin_plot():
 #        fig = go.Figure()

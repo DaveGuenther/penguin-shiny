@@ -1,3 +1,8 @@
+# Plotnine tracks ggplot2, but both plotnine and ggplot2 appear to have limited flexibility on events.  
+# I wasn't able to make a bar chart clickable and set as a filter to other parts of the shiny dashboard.
+# From here I moved on to look into plotly (using Shiny) to see if that might offer a solution.
+
+
 # Load data and compute static values
 from shiny import App, reactive, render, ui
 from plotnine import ggplot, aes, geom_bar

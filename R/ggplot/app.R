@@ -1,3 +1,9 @@
+# First attempt at a Shiny Dashboard that allows reactive filtering based on a bar chart segment being clicked.
+# I couldn't get very far with ggplot2 and discovered that it's event_handling capabilities in shiny are limited, likely due to it's 
+# history as a static visualization renderer.  From here I started looking into plotly for R with R Shiny to see if it may offer the
+# reactivity desired where I can filter a table based on a bar chart segment clicked.
+# (See in this repo: R/plotly/app.r for the next iteration)
+
 library(shiny)
 library(dplyr)
 library(bslib)
