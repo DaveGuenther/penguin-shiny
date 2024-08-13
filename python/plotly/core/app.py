@@ -88,7 +88,6 @@ app_ui = ui.page_fluid(
 
             ui.tags.script('''
                             console.log("Initializing!"); 
-                            //Shiny.setInputValue("plot_clicked","not_clicked"); 
                             $(document).on("click", function(e){
                                 Shiny.onInputChange("ctrlPressed", e.ctrlKey);
                             })
@@ -103,8 +102,10 @@ app_ui = ui.page_fluid(
                 ui.output_table('table_view'),
                 style="height:300px; overflow-y: scroll"
             )
-        )
+        ),
+        ui.a({'href':"https://github.com/DaveGuenther/penguin-shiny/blob/stack-exchange-deselect-hightlight-question/python/plotly/core/app.py"}, "View Source"),
     ),
+    
 )
 
 def server (input, output, session):
