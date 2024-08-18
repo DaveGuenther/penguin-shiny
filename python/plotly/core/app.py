@@ -78,6 +78,14 @@ app_ui = ui.page_fluid(
         # Main Panel
         ui.card( # Plot
             ui.card_header(ui.output_text('chart_title')),
+            ui.h5("Apparent Issues:"),
+        ui.div("1. Selecting individual bar segments on bar chart (",
+               ui.a({'href':'https://plotly.com/python-api-reference/generated/plotly.html#plotly.basedatatypes.BaseTraceType.on_click'}, "on_click"),
+               ") doesn't allow for an exit-event-like function (such as off_click) when the user double clickes on the white-space of the visual.  Box and Lasso select have (",
+               ui.a({'href':'https://plotly.com/python-api-reference/generated/plotly.html#plotly.basedatatypes.BaseTraceType.on_selection'},"on_selection"), 
+               ") do this using ",
+               ui.a({'href':'https://plotly.com/python-api-reference/generated/plotly.html#plotly.basedatatypes.BaseTraceType.on_deselect'}, "on_deselect"),
+               "."),
             output_widget('penguin_plot'),
             ui.span("on_hover Data: "),
             ui.output_text_verbatim('hover_info_output'),
@@ -104,6 +112,7 @@ app_ui = ui.page_fluid(
             )
         ),
         ui.a({'href':"https://github.com/DaveGuenther/penguin-shiny/blob/stack-exchange-deselect-hightlight-question/python/plotly/core/app.py"}, "View Source"),
+        
     ),
     
 )
@@ -114,7 +123,6 @@ def server (input, output, session):
     click_filter=reactive.value({})
     click_opacity=reactive.value({})
     hover_info=reactive.value({})
-    penguin_plot_clicked=reactive.value(False)
 
     def setHoverValues(trace, points, selector):
         if not points.point_inds:
@@ -152,10 +160,6 @@ def server (input, output, session):
     
         click_filter.set({'year':points.xs,input.category():points.trace_name})
     
-    def unSelectValues(trace, points):
-        inds = points.point_inds
-        print("Deselected!!!!")
-
     def setSelectedValues(trace, points, selector):
         # Pull existing values of trace filters.  We will replace them with new values
         action_filters=selection_filter.get()
@@ -230,12 +234,8 @@ def server (input, output, session):
             trace.on_hover(setHoverValues)
             trace.on_click(setClickedValues)
             trace.on_selection(setSelectedValues) 
-            trace.on_deselect(unSelectValues)
 
         highlightBars(figWidget)
-        
-        #figureWidget.layout.on_change(figureChanged, figureWidget)
-
 
         return figWidget
     
