@@ -15,6 +15,7 @@ import itertools
 df_penguins = palmerpenguins.load_penguins()
 
 dict_category = {'species':'Species','island':'Island','sex':'Gender'}
+id='penguin_plot'
 
 def filter_shelf():
     return ui.card(
@@ -85,11 +86,18 @@ app_ui = ui.page_fluid(
             ui.output_text_verbatim('click_info_output'),
             ui.span("on_selection Data: "),
             ui.output_text_verbatim('selection_info_output'),
-
+            ui.tags.script(
+                            """
+                            $("""+id+""").on('plotly_doubleclick', function(d) 
+                            {
+                                console.log('Plot Double Clicked');
+                                console.log(d);
+                                Shiny.setInputValue('"""+id+"""_doubleclick', True, {priority: "event"})
+                            })"""),
             ui.tags.script('''
                             console.log("Initializing!"); 
                             //Shiny.setInputValue("plot_clicked","not_clicked"); 
-                            $(document).on("click", function(e){
+                            $(penguin_plot).on("click", function(e){
                                 Shiny.onInputChange("ctrlPressed", e.ctrlKey);
                             })
                            '''),
