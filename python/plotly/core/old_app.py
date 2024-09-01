@@ -1,7 +1,7 @@
 # Load data and compute static values
 from shiny import App, reactive, render, ui
 from shinywidgets import output_widget, render_widget, render_plotly
-from plotnine import ggplot, aes, geom_bar
+#from plotnine import ggplot, aes, geom_bar
 from htmltools import div
 import plotly.graph_objects as go
 import pandas as pd
@@ -15,8 +15,8 @@ import itertools
 df_penguins = palmerpenguins.load_penguins()
 
 dict_category = {'species':'Species','island':'Island','sex':'Gender'}
-id='penguin_plot'
-
+#id='penguin_plot'
+id = "penguin_plot" # the plot's id
 def filter_shelf():
     return ui.card(
         ui.card_header(
@@ -86,14 +86,26 @@ app_ui = ui.page_fluid(
             ui.output_text_verbatim('click_info_output'),
             ui.span("on_selection Data: "),
             ui.output_text_verbatim('selection_info_output'),
+            
+            # Code insert from Discord
+             #ui.tags.script(f"document.getElementById({id}).on('plotly_doubleclick', function(d) {{ Shiny.setInputValue({id} + "_doubleclick", True, {priority: "event"}) }})"),
+
+            # Modified Discord Code
             ui.tags.script(
-                            """
-                            $("""+id+""").on('plotly_doubleclick', function(d) 
-                            {
-                                console.log('Plot Double Clicked');
-                                console.log(d);
-                                Shiny.setInputValue('"""+id+"""_doubleclick', True, {priority: "event"})
-                            })"""),
+                '''document.getElementById("'''+id+'''").on('plotly_doubleclick', function(d) 
+                    {{ Shiny.setInputValue('''+id+'''_doubleclick, True, {priority: "event"}) }})
+                    '''),
+
+
+            # Attempt to run using JQuery
+#            ui.tags.script(
+#                            """
+#                            $("""+id+""").on('dblclick', function(d) 
+##                            {
+ #                               console.log('Plot Double Clicked');
+ ##                               console.log(d);
+  #                              Shiny.setInputValue('"""+id+"""_doubleclick', True, {priority: "event"})
+  #                          })"""),
             ui.tags.script('''
                             console.log("Initializing!"); 
                             //Shiny.setInputValue("plot_clicked","not_clicked"); 
